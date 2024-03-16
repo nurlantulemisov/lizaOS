@@ -1,51 +1,40 @@
-; bootloader
+global boot                                 ; the entry symbol for ELF
 
-[bits 32]
+extern kmain                                ; the entry symbol for C
+extern __mbHeader
 
-; constants for multiboot header
-MBALIGN     equ  1<<0                   ; выровнить по границе страницы
-MEMINFO     equ  1<<1                   ; установить memory map
-; BOOTDEVICE  equ  1<<1
-FLAGS       equ  MBALIGN | MEMINFO      ; multiboot flags
-MAGIC       equ  0x1BADB002             ; magic for finding bootloader header
-CHECKSUM    equ -(MAGIC + FLAGS)        ; checksum of above, to prove we are multiboot
+MAGIC_NUMBER  equ 0x1BADB002                ; define the magic number constant
+PAGE_ALIGN    equ 1<<0                      ; Load kernel and modules on a page boundary
+MEM_INFO      equ 1<<1                      ; Provide your kernel with memory info
+FLAGS         equ PAGE_ALIGN | MEM_INFO     ; multiboot flags i.e. ELF
+CHECKSUM      equ -(MAGIC_NUMBER + FLAGS)   ; calculate the checksum
+                                            ; (magic number + checksum + flags should equal 0)
 
+KSTACK_SIZE   equ 0x8000                    ; size of stack, 32kB
 
-; kernel entry, main text section
-section .text
+section .__mbHeader                         ; multiboot header
 align 4
-; set multiboot section
-section .multiboot
-    ; Говорим загрузчику, что это есть kernel по MAGIC. 
-    ; Bootloader будет искать эту запись в первых 8кб
-    ; https://www.gnu.org/software/grub/manual/multiboot/multiboot.html#Boot-sources
-    dd MAGIC
-    dd FLAGS
-    dd CHECKSUM
+    dd MAGIC_NUMBER                         ; write the magic number to the machine code,
+    dd FLAGS                                ; the flags,
+    dd CHECKSUM                             ; and the checksum
 
-global _start
+boot:                                       ; the boot label (defined as entry point in linker script)
 
-_start:
-    mov esp, stack_top
-    extern kmain
-    mov eax, MAGIC
-    push ebx
-    push eax
-    call kmain
-loop:
-    hlt
-    jmp loop
+setup_kstack:
+    mov esp, kernel_stack + KSTACK_SIZE     ; point esp to the start of the
+                                            ; stack (end of memory area)
+
+call_kmain:
+    push ebx                                ; loads multiboot header location
+    push eax                                ; loads multiboot magic 0x1BADB002
+    call kmain                              ; this pushes ebp (base pointer) and sets esp
+                                            ; then calls the kmain, which sets 0xBADA55 on eax
+                                            ; it pops ebp and returns
+
+.loop:
+    jmp .loop                               ; loop forever
 
 section .bss
-align 16                        ; The stack on x86 must be 16-byte aligned according to the
-                                ; System V ABI standard and de-facto extensions. The compiler will assume the
-                                ; stack is properly aligned and failure to align the stack will result in
-                                ; undefined behavior.
-
-
-stack_bottom:
-    ; 16KiB of uninitialized data for stack
-    resb 16384
-stack_top:
-
-
+align 4                                     ; align at 4 bytes
+kernel_stack:                               ; label points to beginning of memory
+    resb KSTACK_SIZE                        ; reserve stack for the kernel

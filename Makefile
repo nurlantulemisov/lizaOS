@@ -109,3 +109,6 @@ $(OBJ)/%.o: $(SRC)/%.c
 clean:
 	$(RM_FORCE) $(OBJ)
 	$(RM_FORCE) $(OUT)
+
+qemu-run:
+	qemu-system-i386 -cdrom out/liza.iso
