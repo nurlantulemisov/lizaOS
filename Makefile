@@ -111,4 +111,4 @@ clean:
 	$(RM_FORCE) $(OUT)
 
 qemu-run:
-	qemu-system-i386 -cdrom out/liza.iso
+	qemu-system-i386 -m 1G -cdrom out/liza.iso
