@@ -38,7 +38,6 @@ irq_handler:
     jmp irq_handler
 %endmacro
 
-
 IRQ 0, 32
 IRQ 1, 33
 IRQ 2, 34

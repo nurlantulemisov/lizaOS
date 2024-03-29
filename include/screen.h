@@ -9,6 +9,4 @@ void screen_clean();
 void screen_put_text(const uint8 *text);
 void screen_init(VGA_COLOR_TYPE bg);
 
-void k_printf(); // todo
-
 #endif // !SCREEN_H

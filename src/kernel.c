@@ -1,6 +1,8 @@
 #include "gdt.h"
 #include "idt.h"
 #include "screen.h"
+#include "stdio.h"
+#include "timer.h"
 #include "vga.h"
 
 void kmain(void) {
@@ -9,12 +11,13 @@ void kmain(void) {
 
   // Initialise the interrupt descriptor table
   idt_init();
-  // __asm__("sti");
+  timer_init();
+  __asm__("sti");
 
   const char *str = "welcone to my os mydjbfv\0";
 
   screen_init(COLOR_BLACK);
   screen_put_text(str);
-  // ___asm__("sti");
-  __asm__ __volatile__("int $0x03");
+
+  k_printf("\nhello from %s num: %d, %x", str, 12, 0x0121);
 }

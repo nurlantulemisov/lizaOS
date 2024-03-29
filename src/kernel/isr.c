@@ -1,5 +1,7 @@
 #include "isr.h"
+#include "8259_pic.h"
 #include "screen.h"
+#include "stdio.h"
 
 ISR g_interrupt_handlers[NO_INTERRUPT_HANDLERS];
 
@@ -38,17 +40,26 @@ char *exception_messages[32] = {"Division By Zero",
                                 "Reserved"};
 
 /**
+ * register given handler to interrupt handlers at given num
+ */
+void isr_register_interrupt_handler(int num, ISR handler) {
+  k_printf("IRQ %d registered\n", num);
+  if (num < NO_INTERRUPT_HANDLERS)
+    g_interrupt_handlers[num] = handler;
+}
+
+/**
  * invoke isr routine and send eoi to pic,
  * being called in irq.asm
  */
 void isr_irq_handler(REGISTERS *reg) {
-  // if (g_interrupt_handlers[reg->int_no] != NULL) {
-  // ISR handler = g_interrupt_handlers[reg->int_no];
-  // handler(reg);
-  // }
-  screen_put_text("received interrupt: ");
+  if (g_interrupt_handlers[reg->int_no] != NULL) {
+    ISR handler = g_interrupt_handlers[reg->int_no];
+    handler(reg);
+  }
+  pic8259_eoi(reg->int_no);
 }
 
 void isr_exception_handler(REGISTERS reg) {
-  screen_put_text("received exception");
+  k_printf("received pointer: %x", reg.int_no);
 }

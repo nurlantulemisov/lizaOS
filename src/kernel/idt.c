@@ -1,4 +1,5 @@
 #include "idt.h"
+#include "8259_pic.h"
 #include "isr.h"
 #include "types.h"
 
@@ -21,6 +22,8 @@ void idt_set_entry(int index, uint32 base, uint16 seg_sel, uint8 flags) {
 void idt_init() {
   g_idt_ptr.base_address = (uint32)g_idt;
   g_idt_ptr.limit = sizeof(g_idt) - 1;
+
+  pic8259_init();
 
   idt_set_entry(0, (uint32)exception_0, 0x08, 0x8E);
   idt_set_entry(1, (uint32)exception_1, 0x08, 0x8E);
