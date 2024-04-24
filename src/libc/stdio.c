@@ -1,6 +1,7 @@
 #include "stdio.h"
 #include "screen.h"
 #include "stdarg.h"
+#include "string.h"
 #include "types.h"
 
 const static char *digits = "0123456789abcdef";
@@ -14,9 +15,7 @@ static void putc(char c, uint32 fd) {
 static void print_num(void (*putch)(char, uint32), uint32 fd, int32 num,
                       uint16 base, BOOL sign) {
   char buf[16];
-  for (uint8 i = 0; i < 16; i++) {
-    buf[i] = '\0';
-  }
+  memset(&buf, '\0', 16);
 
   BOOL neg = FALSE;
   int32 n = num;

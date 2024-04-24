@@ -1,7 +1,8 @@
 #ifndef VGA_H
 #define VGA_H
 
-#define VGA_ADDRESS 0xB8000
+#define P2V(a) ((a) + 0xC0000000)
+#define VGA_ADDRESS 0xC00B8000
 
 // CRT Controller Registers
 #define VGA_CRTC_INDEX 0x3D4

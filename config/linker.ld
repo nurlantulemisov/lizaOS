@@ -1,28 +1,56 @@
-OUTPUT_FORMAT(elf32-i386)
-ENTRY(boot)                  /* the name of the entry label */
+ENTRY (_start)
 
-SECTIONS {
-    . = 0x00100000;          /* the code should be loaded at 1 MB */
+SECTIONS
+{
+    /* Base address starting at 1MB */
+    . = 0x00100000;
+    _EARLY_KERNEL_START = .;
 
-    .__mbHeader : {
-        *(.__mbHeader)       /* http://wiki.osdev.org/Grub_Error_13 */
-    }
-
-    .text ALIGN (0x1000) :   /* align at 4 KB */
+    /* Special multiboot compliant header.
+     * Used by GRUB for image detection.
+     */
+    .__mbHeader : { *(.__mbHeader) }
+    .early_text ALIGN (0x1000) : { *(.early_text) }
+    .early_data ALIGN (0x1000) : { *(.early_data) }
+    .early_bss ALIGN (0x1000) :
     {
-        *(.text)             /* all text sections from all files */
+        _EARLY_BSS_START = .;
+        *(.early_bss)
+        _EARLY_BSS_END = .;
     }
 
-    .data ALIGN (0x1000) :   /* align at 4 KB */
+    _EARLY_KERNEL_END = .;
+
+    /* Higher half (3 GB) */
+    . += 0xC0000000;
+
+    /* Let the source know about the kernel start */
+    _KERNEL_START = .;
+
+    /* make sure the sections are page aligned */
+    .text ALIGN (0x1000) : AT(ADDR(.text) - 0xC0000000) { *(.text) }
+    .rodata ALIGN (0x1000) : AT(ADDR(.rodata) - 0xC0000000) { *(.rodata*) }
+    .data ALIGN (0x1000) : AT(ADDR(.data) - 0xC0000000) { *(.data) }
+    .bss ALIGN (0x1000) : AT(ADDR(.bss) - 0xC0000000)
     {
-        *(.data)             /* all data sections from all files */
+        _BSS_START = .;
+        *(.bss)
+        *(COMMON)
+        _BSS_END = .;
     }
-
-    .bss ALIGN (0x1000) :    /* align at 4 KB */
+    .early_kmalloc ALIGN (0x1000) : AT(ADDR(.early_kmalloc) - 0xC0000000)
     {
-        *(COMMON)            /* all COMMON sections from all files */
-        *(.bss)              /* all bss sections from all files */
+        _EARLY_KMALLOC_START = .;
+        . += 0x100000; /* 1MB of heap space */
+        _EARLY_KMALLOC_END = .;
     }
 
-    kernel_end = .; _kernel_end = .; __kernel_end = .;
+    /* Let the source know about the kernel end */
+    _KERNEL_END = .;
+    _EARLY_BSS_SIZE    = _EARLY_BSS_END - _EARLY_BSS_START;
+    _BSS_SIZE    = _BSS_END    - _BSS_START;
+    _KERNEL_SIZE = _KERNEL_END - _KERNEL_START;
 }
+
+ASSERT(_KERNEL_SIZE < 0x300000, "Kernel exceeds the 3 MB limit. asm/loader.s must be updated to work with a >3MB kernel");
+

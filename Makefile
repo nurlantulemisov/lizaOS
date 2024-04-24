@@ -85,6 +85,10 @@ else
 endif
 
 $(TARGET): $(ASM_OBJECTS) $(OBJECTS)
+	export SRC_DIR="$HOME/theseus_tools_src"
+	export PREFIX="$HOME/theseus_tools_opt/"
+	export TARGET=x86_64-elf
+	export PATH="$PREFIX/bin:$PATH"
 	@printf "[ linking... ]\n"
 	$(LD) $(LD_FLAGS) -o $(TARGET) $^
 	@printf "[ checking multiboot signature... ]\n"
