@@ -4,12 +4,14 @@
  */
 
 #include "8259_pic.h"
+
 #include "io.h"
 
 /**
  * initialize 8259 PIC with default IRQ's defined in isr.h
  */
-void pic8259_init() {
+void
+pic8259_init() {
   uint8 a1, a2;
 
   // save mask registers
@@ -42,8 +44,9 @@ void pic8259_init() {
 /**
  * send end of interrupt command to PIC 8259
  */
-void pic8259_eoi(uint8 irq) {
-  if (irq >= 0x28) // to slave if interrupt > 7
+void
+pic8259_eoi(uint8 irq) {
+  if(irq >= 0x28) // to slave if interrupt > 7
     outb(PIC2, PIC_EOI);
   outb(PIC1, PIC_EOI);
 }

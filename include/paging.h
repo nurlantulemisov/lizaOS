@@ -66,6 +66,7 @@ struct pdirectory {
   page_t m_entries[PAGES_PER_DIR];
 };
 
-void init_paging();
+void
+init_paging();
 
 #endif // !PAGING_H

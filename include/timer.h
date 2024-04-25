@@ -28,9 +28,12 @@ typedef struct {
   TIMER_FUNC_ARGS func_args[MAXIMUM_TIMER_FUNCTIONS];
 } TIMER_FUNCTION_MANAGER;
 
-void timer_init();
-void sleep(int sec);
+void
+timer_init();
+void
+sleep(int sec);
 
-void timer_register_function(TIMER_FUNCTION function, TIMER_FUNC_ARGS *args);
+void
+timer_register_function(TIMER_FUNCTION function, TIMER_FUNC_ARGS *args);
 
 #endif

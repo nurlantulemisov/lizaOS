@@ -46,16 +46,19 @@ typedef enum {
  *
  * returns complete item with fore & back color to be placed at VGA address
 */
-uint16 vga_item_entry(uint8 ch, VGA_COLOR_TYPE fore_color,
-                      VGA_COLOR_TYPE back_color);
+uint16
+vga_item_entry(uint8 ch, VGA_COLOR_TYPE fore_color, VGA_COLOR_TYPE back_color);
 
-void vga_write_b(uint8 ch, VGA_COLOR_TYPE fore_color,
-                 VGA_COLOR_TYPE back_color);
+void
+vga_write_b(uint8 ch, VGA_COLOR_TYPE fore_color, VGA_COLOR_TYPE back_color);
 
-void vga_init(VGA_COLOR_TYPE bg);
+void
+vga_init(VGA_COLOR_TYPE bg);
 
-void vga_clear(VGA_COLOR_TYPE bg);
+void
+vga_clear(VGA_COLOR_TYPE bg);
 
-void vga_newline();
+void
+vga_newline();
 
 #endif // !VGA_H

@@ -4,6 +4,7 @@
 #define stdout 1
 #define stderr 2
 
-void k_printf(const char *fmt, ...);
+void
+k_printf(const char *fmt, ...);
 
 #endif // !STDIO_H

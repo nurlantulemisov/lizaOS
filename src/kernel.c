@@ -6,7 +6,8 @@
 #include "timer.h"
 #include "vga.h"
 
-void kmain() {
+void
+kmain() {
   // Initialise the global descriptor table
   gdt_init();
 

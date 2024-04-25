@@ -5,6 +5,7 @@
 
 extern uint32 kernel_physical_end;
 
-uint32 kalloc(uint32 size);
+uint32
+kalloc(uint32 size);
 
 #endif // !ALLOC_H

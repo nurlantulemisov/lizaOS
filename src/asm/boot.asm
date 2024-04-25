@@ -58,7 +58,7 @@ _start:
   or dword [page_directory], PAGE_PERM ; mark the PT as present
 
   xor eax, eax ; eax is our starting physical address (0x00000000)
-  .lowmem:
+.lowmem:
   mov ecx, eax
   shr ecx, PAGE_SHIFT     ; divide our current address by PAGE_SIZE
   and ecx, 0x3ff          ; mask of higher bits to create an index (mod 1024)
@@ -78,7 +78,8 @@ _start:
   or dword [page_directory+edx*4], PAGE_PERM ; mark the PT as present
 
   mov eax, _KERNEL_START ; the kernel's current virtual start
-  .higher:
+
+.higher:
   mov ecx, eax
   shr ecx, PAGE_SHIFT
   and ecx, 0x3ff ; generate kernel PTE index
@@ -113,7 +114,7 @@ _start:
   push dword [multiboot_info]         ; Multiboot info structure
   call kmain                          ; call virtual kernel entry point 
 
-  .catchfire:
+.catchfire:
   hlt                                 ; halt machine if the kernel returns (it won't)
   jmp short .catchfire
 
