@@ -16,7 +16,18 @@ static struct {
 static uint8 x = 0;
 static uint8 y = 0;
 
-uint16
+/**
+ * 16 bit video buffer elements(register ax)
+ * 8 bits(ah) higher :
+ * lower 4 bits - forec olor
+ * higher 4 bits - back color
+
+ * 8 bits(al) lower :
+ * 8 bits : ASCII character to print
+ *
+ * returns complete item with fore & back color to be placed at VGA address
+*/
+static uint16
 vga_item_entry(uint8 ch, VGA_COLOR_TYPE fore_color, VGA_COLOR_TYPE back_color) {
   uint16 ax = 0;
   uint8 ah = 0, al = 0;
@@ -32,11 +43,22 @@ vga_item_entry(uint8 ch, VGA_COLOR_TYPE fore_color, VGA_COLOR_TYPE back_color) {
   return ax;
 }
 
+static void
+scroll(VGA_COLOR_TYPE fore_color, VGA_COLOR_TYPE back_color) {
+  for(int i = 0; i < 2200 - 80; i++) {
+    vga.vga_buff[i] = vga.vga_buff[i + VGA_WIDTH];
+  }
+
+  vga.x = 0;
+  vga.pos = vga.y * VGA_WIDTH;
+  vga.y = VGA_HEIGHT;
+}
+
 // Обновляем аппаратный курсор.
 static void
 vga_position_cursor(uint8 x, uint8 y) {
   // The screen is 80 characters wide...
-  uint16 cursorLocation = y * 80 + x;
+  uint16 cursorLocation = y * VGA_WIDTH + x;
   outb(VGA_CRTC_INDEX,
        14); // Сообщаем плате VGA о том, что мы посылаем старший байт курсора.
   outb(VGA_CRTC_DATA, cursorLocation >> 8); // Посылаем старший байт курсора.
@@ -49,8 +71,6 @@ void
 vga_write_b(uint8 ch, VGA_COLOR_TYPE fore_color, VGA_COLOR_TYPE back_color) {
   vga.vga_buff[vga.pos++] = vga_item_entry(ch, fore_color, back_color);
   vga.x++;
-  // vga.y;
-
   vga_position_cursor(vga.x, vga.y);
 }
 
@@ -71,8 +91,10 @@ vga_clear(VGA_COLOR_TYPE bg) {
 }
 
 void
-vga_newline() {
-  if(vga.y >= VGA_HEIGHT - 1) {
+vga_newline(VGA_COLOR_TYPE fore_color, VGA_COLOR_TYPE back_color) {
+  if(vga.y >= VGA_HEIGHT) {
+    scroll(fore_color, back_color);
+    vga_position_cursor(vga.x, vga.y);
     return;
   }
 

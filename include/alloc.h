@@ -1,11 +1,15 @@
 #ifndef ALLOC_H
 #define ALLOC_H
 
+#include "paging.h"
 #include "types.h"
 
-extern uint32 kernel_physical_end;
+void
+kmalloc_early_init(uint32 base, uint32 max);
 
 uint32
-kalloc(uint32 size);
+kmalloc_early(uint32 size);
+uint32
+kmalloc_early_align(uint32 size);
 
 #endif // !ALLOC_H

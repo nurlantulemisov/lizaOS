@@ -13,6 +13,32 @@
 #define PAGE_TABLE_INDEX(x) (((x) >> 12) & 0x3ff)
 #define PAGE_GET_PHYSICAL_ADDRESS(x) (*x & ~0xfff)
 
+#define PAGE_ALIGN 0xfffff000
+#define NOT_ALIGNED ~(PAGE_ALIGN)
+#define PAGE_ALIGN_UP(addr) \
+  (((addr) & NOT_ALIGNED) ? (((addr) & PAGE_ALIGN) + PAGE_SIZE) : ((addr)))
+#define PAGE_ENTRIES 1024
+#define PAGE_TABLE_SIZE (sizeof(uint32) * PAGE_ENTRIES)
+
+// page flags
+#define PAGE_ENTRY_PRESENT 0x1
+#define PAGE_ENTRY_RW 0x2
+#define PAGE_ENTRY_ACCESS 0x20
+
+#define PAGES_PER_MB(mb) (PAGE_ALIGN_UP((mb) * 1024 * 1024) / PAGE_SIZE)
+
+// Information about the Kernel from the linker
+extern uint32 _KERNEL_START;
+extern uint32 _KERNEL_END;
+extern uint32 _EARLY_KMALLOC_START;
+extern uint32 _EARLY_KMALLOC_END;
+
+// Simplified storage varables (see memory.c)
+extern uint32 KERNEL_START;
+extern uint32 KERNEL_END;
+extern uint32 EARLY_KMALLOC_START;
+extern uint32 EARLY_KMALLOC_END;
+
 // +-------+-----+-----+-----+-----+-----+-----+
 // | FA    | U   | D   | A   | U   | RW  | P   |
 // +-------+-----+-----+-----+-----+-----+-----+
@@ -27,8 +53,6 @@
 // U - User
 // RW - Read/Write
 // P - Present
-
-extern uint32 kernel_physical_end;
 
 typedef struct page {
   uint32 present : 1;  // Page present in memory

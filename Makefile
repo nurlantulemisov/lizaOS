@@ -79,7 +79,7 @@ ifneq ($(SKIP_ISO), 1)
 	$(CP) $(TARGET) $(ISO_DIR)/boot/
 	$(CP) $(CONFIG)/grub.cfg $(ISO_DIR)/boot/grub/
 	grub-mkrescue -o $(TARGET_ISO) $(ISO_DIR)
-	$(RM) $(TARGET)
+	# $(RM) $(TARGET)
 else
 	@printf "[ iso build skipped ]\n"
 endif
@@ -115,4 +115,7 @@ clean:
 	$(RM_FORCE) $(OUT)
 
 qemu-run:
-	qemu-system-i386 -m 1G -cdrom out/liza.iso
+	qemu-system-i386 -m 4G -cdrom out/liza.iso
+
+debug:
+	./scripts/debug.sh

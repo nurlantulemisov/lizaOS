@@ -3,7 +3,7 @@
 
 #include "types.h"
 
-#define GDT_DESCRIPTORS 8
+#define GDT_DESCRIPTORS 5
 
 typedef struct {
   uint16 segment_limit; // segment limit first 0-15 bits

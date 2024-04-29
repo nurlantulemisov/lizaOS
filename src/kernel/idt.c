@@ -2,6 +2,8 @@
 
 #include "8259_pic.h"
 #include "isr.h"
+#include "kerror.h"
+#include "stdio.h"
 #include "types.h"
 
 IDT g_idt[IDT_DESCRIPTORS];
@@ -17,14 +19,19 @@ idt_set_entry(int index, uint32 base, uint16 seg_sel, uint8 flags) {
   i->base_low = base & 0xFFFF;
   i->segment_selector = seg_sel;
   i->zero = 0;
-  i->type = flags | 0x60;
+  i->type = flags;
   i->base_high = (base >> 16) & 0xFFFF;
+
+  if((((uint32) i) - 0xC0000000) == 0x001010D8) {
+    k_printfln("idt %p", ((uint32) i) - 0xC0000000);
+    panic("lc,;cd");
+  }
 }
 
 void
 idt_init() {
   g_idt_ptr.base_address = (uint32) g_idt;
-  g_idt_ptr.limit = sizeof(g_idt) - 1;
+  g_idt_ptr.limit = sizeof(g_idt) * (IDT_DESCRIPTORS - 1);
 
   pic8259_init();
 

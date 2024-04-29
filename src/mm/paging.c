@@ -1,100 +1,119 @@
 #include "paging.h"
-// #include "alloc.h"
+
+#include "alloc.h"
 #include "isr.h"
+#include "kerror.h"
 #include "stdio.h"
 #include "string.h"
 #include "types.h"
 
-#define INDEX_FROM_BIT(a) (a / (8 * 4))
-#define OFFSET_FROM_BIT(a) (a % (8 * 4))
+#include <stdint.h>
 
-static page_directory_t *kernel_directory = 0;
-static page_directory_t *current_directory = 0;
+// initialize the KERNEL_* convience variables
+// allows us forget about using & all the time
+uint32 KERNEL_START = (uint32) &_KERNEL_START;
+uint32 KERNEL_END = (uint32) &_KERNEL_END;
+uint32 EARLY_KMALLOC_START = (uint32) &_EARLY_KMALLOC_START;
+uint32 EARLY_KMALLOC_END = (uint32) &_EARLY_KMALLOC_END;
 
-uint32 placement_address = 0xFFFFF000;
-
-uint32 *frames;
-uint32 nframes;
-
-uint32
-kmalloc_internal(uint32 sz, uint8 align, uint32 *phys) {
-  // Align address on 4096 bytes boundary
-  if(align == 1 && (placement_address & 0xFFFFF000)) {
-    placement_address &= 0xFFFFF000;
-    placement_address += 0x1000;
-  }
-  // Allocate physical memory
-  if(phys) {
-    *phys = placement_address;
-  }
-  uint32 tmp = placement_address;
-  placement_address += sz;
-  return tmp;
-}
-
-uint32
-kmalloc(uint32 sz) {
-  return kmalloc_internal(sz, 0, 0);
-}
-
-uint32
-kmalloc_aligned(uint32 sz) {
-  return kmalloc_internal(sz, 1, 0);
-}
-
-uint32
-kmalloc_alignedp(uint32 sz, uint32 *phys) {
-  return kmalloc_internal(sz, 1, phys);
-}
-
-void
-switch_page_directory(page_directory_t *dir) {
-  current_directory = dir;
-  __asm__ volatile("mov %0, %%cr3" ::"r"(&dir->tablesPhysical));
-  uint32 cr0;
-  __asm__ volatile("mov %%cr0, %0" : "=r"(cr0));
-  cr0 |= 0x80000000; // Enable paging!
-  __asm__ volatile("mov %0, %%cr0" ::"r"(cr0));
-}
-
-static int32
-get_first_available_frame() {
-  for(uint32 i = 0; i < INDEX_FROM_BIT(nframes); i++) {
-    if(frames[i] != 0xffffffff) {
-      for(int j = 0; j < 32; j++) {
-	if(!(frames[i] & (0x1 << j))) {
-	  return 32 * i + j;
-	}
-      }
-    }
-  }
-  return -1;
-}
+// stored Page Directory
+static uint32 *pageDirectory = NULL;
+// A reverse mapping from physical to virtual
+static uint32 **ptPhysToVirt = NULL;
+// Guard against multiple enables of paging and for
+// virtual to physical translation
+static int kernelPagingEnabled = 0;
 
 static void
-set_frame(uint32 frame_addr) {
-  uint32 frame = frame_addr / PAGE_SIZE;
-  frames[INDEX_FROM_BIT(frame)] |= (0x1 << OFFSET_FROM_BIT(frame));
+page_map_pte(uint32 *pt, uint32 index, uint32 phys, uint32 perm);
+static uint32 *
+_native_get_page_directory();
+static void
+_native_set_page_directory(uint32 *phyDir);
+static void
+_native_paging_enable();
+static void
+_native_paging_disable();
+
+uint32
+virt_to_phys(uint32 virt_addr) {
+  uint32 *pd = NULL;
+  uint32 *pt = NULL;
+  uint32 pde = 0;
+
+  uint32 index = virt_addr / PAGE_SIZE;
+  uint32 pageDirI = (index / 1024) % 1024;
+  uint32 pageTableI = index % 1024;
+
+  // we are referencing our virtual memory alloc'd page directory
+  if(kernelPagingEnabled) {
+    pd = pageDirectory; // virtual address
+    pde = (uint32) ptPhysToVirt[pageDirI]
+	  | (uint32) pd[pageDirI]
+	      & PAGE_ENTRY_PRESENT; // virtual address with flags
+    pt = (uint32 *) (pde & PAGE_ALIGN);
+  } else {
+    pd = _native_get_page_directory(); // identity mapped physical address
+    pde = (uint32) pd[pageDirI];       // identity mapped physical address
+    pt = (uint32 *) (pde & PAGE_ALIGN);
+  }
+
+  // TODO: make this more robust
+  ASSERT(pde & PAGE_ENTRY_PRESENT);
+  ASSERT(pt[pageTableI] & PAGE_ENTRY_PRESENT);
+
+  // return just physical address without flags
+  return pt[pageTableI] & PAGE_ALIGN;
 }
 
-page_t *
-get_page(uint32 address, uint8 make, page_directory_t *dir) {
-  // Turn the address into an index.
-  address /= PAGE_SIZE;
-  // Find the page table containing this address.
-  uint32 table_idx = address / 1024;
-  // If this table is already assigned
-  if(dir->tables[table_idx]) {
-    return &dir->tables[table_idx]->pages[address % 1024];
-  } else if(make) {
-    uint32 tmp;
-    dir->tables[table_idx] =
-      (page_table_t *) kmalloc_alignedp(sizeof(page_table_t), &tmp);
-    memset(dir->tables[table_idx], 0, 0x1000);
-    dir->tablesPhysical[table_idx] = tmp | 0x7; // PRESENT, RW, US.
-    return &dir->tables[table_idx]->pages[address % 1024];
+/* Allocates a mapping between the requested virtual address
+ * and the physical address, using the requested permissions.
+ * Returns the address of the PTE
+ */
+uint32
+page_map(uint32 virt, uint32 phys, uint32 perm) {
+  ASSERT(!(virt & NOT_ALIGNED || phys & NOT_ALIGNED));
+  ASSERT(pageDirectory);
+
+  // k_printf("page_map: %p -> %p\n", virt, phys);
+  uint32 index = virt / PAGE_SIZE;
+  uint32 pageDirI = (index / 1024) % 1024;
+  uint32 pageTableI = index % 1024;
+
+  if(phys == 0x001010D8 || virt == 0x001010D8) {
+    panic("");
   }
-  return 0;
+
+  // if the page table isn't present, create it
+  if(!(pageDirectory[pageDirI] & PAGE_ENTRY_PRESENT)) {
+    uint32 *pageTable = (uint32 *) kmalloc_early_align(PAGE_TABLE_SIZE);
+
+    // Clear all physical addresses and flags
+    memset(pageTable, 0, PAGE_TABLE_SIZE);
+
+    // Add the page table to the directory and mark it as present
+    // NOTE: PDE's MUST have a physical address
+    pageDirectory[pageDirI] =
+      virt_to_phys((uint32) pageTable) | PAGE_ENTRY_PRESENT | PAGE_ENTRY_RW;
+
+    k_printfln("page_map: table %u created at %p (%p)", pageDirI, pageTable,
+	       pageDirectory[pageDirI]);
+
+    // store the virtual address of the PTE
+    ptPhysToVirt[pageDirI] = pageTable;
+  }
+
+  // load our virtual PT address from our reverse mapping
+  uint32 *pageTable = ptPhysToVirt[pageDirI];
+  page_map_pte(pageTable, pageTableI, phys, perm);
+
+  return (uint32) &pageTable[pageTableI];
+}
+/* A direct mapping between the virtual and physical realm
+ */
+uint32
+page_ident_map(uint32 addr, uint32 perm) {
+  return page_map(addr, addr, perm);
 }
 
 void
@@ -113,56 +132,124 @@ page_fault_handler(REGISTERS *regs) {
   int id = regs->err_code & 0x10; // Caused by an instruction fetch?
 
   // Output an error message.
-  k_printf("\nPage fault at address=%x | present=%d read-only=%d user-mode=%d "
-	   "reserved=%d instruction-fetch=%d",
-	   faulting_address, present, rw, us, reserved, id);
-  k_printf("\nPAGE FAULT PANIC");
-  for(;;)
-    ;
-}
-
-void
-alloc_frame(page_t *page, uint8 is_kernel, uint8 is_writeable) {
-  if(page->frame != 0) {
-    return; // frame already allocated
-  } else {
-    int32 free_frame_idx = get_first_available_frame();
-    if(free_frame_idx < 0) {
-      // TODO: raise PANIC, OOM
-    }
-    set_frame(PAGE_SIZE * free_frame_idx);
-    page->present = 1;
-    page->frame = free_frame_idx;
-    page->rw = (is_writeable ? 1 : 0);
-    page->user = (is_kernel ? 0 : 1);
-  }
+  k_printfln("Page fault at address=%p | present=%d read-only=%d user-mode=%d\n"
+	     "reserved=%d instruction-fetch=%d",
+	     faulting_address, present, rw, us, reserved, id);
+  panic("here");
 }
 
 void
 init_paging() {
-  // pdirectory *pgdir = (pdirectory *)kalloc();
-  // 1. create page_directory
-  // 2. cr3 set
-  //
-  //
-  uint32 total_physical_memory = 1024 * 1024 * 1024;
-  nframes = total_physical_memory / PAGE_SIZE;
-  frames = (uint32 *) kmalloc(INDEX_FROM_BIT(nframes));
-  frames = memset(frames, 0, INDEX_FROM_BIT(nframes));
+  uint32 i;
+  uint32 addr = 0;
 
-  kernel_directory =
-    (page_directory_t *) kmalloc_aligned(sizeof(page_directory_t));
-  kernel_directory = memset(kernel_directory, 0, sizeof(page_directory_t));
-  current_directory = kernel_directory;
+  // 1024 page table entries (pointers)
+  pageDirectory = (uint32 *) kmalloc_early_align(PAGE_TABLE_SIZE);
+  ptPhysToVirt = (uint32 **) kmalloc_early_align(PAGE_TABLE_SIZE);
 
-  k_printf("\nPaging placement address = %x", placement_address);
+  k_printfln("page_dir=%p, pt_phys=%p", pageDirectory, ptPhysToVirt);
+  // initialize all the page tables to not present, rw, supervisor
+  memset(pageDirectory, 0, PAGE_TABLE_SIZE);
+  // initialize reverse mappings
+  memset(ptPhysToVirt, 0, PAGE_TABLE_SIZE);
 
-  for(uint32 i = 0; i < placement_address; i += PAGE_SIZE) {
-    alloc_frame(get_page(i, 1, kernel_directory), 0, 0);
+  uint32 *oldDir = _native_get_page_directory();
+  k_printf("paging: PTD at %p (old %p)\n", virt_to_phys((uint32) pageDirectory),
+	   oldDir);
+
+  // Identity map the 1 megabyte
+  for(i = 0; i < PAGES_PER_MB(1); i++) {
+    page_ident_map(addr, PAGE_ENTRY_RW);
+    addr += PAGE_SIZE;
+    if(addr == 0x001010D8) {
+      panic("hfbvhjfbv");
+    }
+    // k_printfln("addr=%p", addr);
   }
-  // Register page fault handler
+
+  // move our kernel to the higher half
+  uint32 virtBase = 0xC0000000;
+  uint32 virtStart = KERNEL_START;
+  uint32 virtEnd = PAGE_ALIGN_UP(KERNEL_END);
+
+  k_printfln("KERNEL_START=%p, KERNEL_END=%p", virtStart, virtEnd);
+  k_printfln("PHYS_START=%p, PHYS_END=%p", virtStart - virtBase,
+	     virtEnd - virtBase);
+  for(addr = virtStart - virtBase; virtStart < virtEnd;
+      virtStart += PAGE_SIZE, addr += PAGE_SIZE) {
+    if(addr == 0x001010D8) {
+      panic("hfbvhjfbv");
+    }
+    // k_printfln("addr=%p", addr);
+
+    page_map(virtStart, addr, PAGE_ENTRY_RW);
+  }
+
   isr_register_interrupt_handler(14, page_fault_handler);
 
-  // Enable paging
-  switch_page_directory(kernel_directory);
+  k_printfln("pagedir=%p, virtpagedir=%p",
+	     (uint32 *) virt_to_phys((uint32) pageDirectory), pageDirectory);
+  // set our directory and enable paging
+  _native_set_page_directory((uint32 *) virt_to_phys((uint32) pageDirectory));
+  _native_paging_enable();
+  kernelPagingEnabled = 1;
+}
+
+void
+page_ident_map_range(uint32 start, uint32 end, uint32 perm) {
+  ASSERT(start < end);
+
+  end = PAGE_ALIGN_UP(end);
+
+  for(; start < end; start += PAGE_SIZE)
+    page_map(start, start, perm);
+}
+
+static void
+page_map_pte(uint32 *pt, uint32 index, uint32 phys, uint32 perm) {
+  ASSERT(pt);
+  ASSERT(index < PAGE_ENTRIES);
+
+  // clear out the page table entry, but keep the flags
+  pt[index] &= ~PAGE_ALIGN;
+
+  // OR on our physical address
+  pt[index] |= phys;
+
+  // Add permissions
+  pt[index] |= perm;
+
+  // mark the entry as present
+  pt[index] |= PAGE_ENTRY_PRESENT;
+}
+
+static inline void
+_native_set_page_directory(uint32 *phyDir) {
+  __asm__ volatile("mov %0, %%cr3" ::"b"(phyDir));
+}
+
+static inline uint32 *
+_native_get_page_directory() {
+  uint32 ret;
+  __asm__ volatile("mov %%cr3, %0" : "=b"(ret));
+
+  return (uint32 *) ret;
+}
+
+static inline void
+_native_paging_enable() {
+  uint32 cr0;
+
+  __asm__ volatile("mov %%cr0, %0" : "=b"(cr0));
+  cr0 |= 0x80000000;
+  __asm__ volatile("mov %0, %%cr0" ::"b"(cr0)); // brace yourself
+}
+
+static inline void
+_native_paging_disable() {
+  uint32 cr0;
+
+  __asm__ volatile("mov %%cr0, %0" : "=b"(cr0));
+  cr0 &= ~(0x80000000U);
+  __asm__ volatile("mov %0, %%cr0" ::"b"(cr0));
 }

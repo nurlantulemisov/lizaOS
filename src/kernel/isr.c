@@ -1,6 +1,7 @@
 #include "isr.h"
 
 #include "8259_pic.h"
+#include "kerror.h"
 #include "screen.h"
 #include "stdio.h"
 
@@ -63,7 +64,22 @@ isr_irq_handler(REGISTERS *reg) {
   pic8259_eoi(reg->int_no);
 }
 
+static void
+print_registers(REGISTERS *reg) {
+  k_printf("eax=0x%x, ebx=0x%x, ecx=0x%x, edx=0x%x\n", reg->eax, reg->ebx,
+	   reg->ecx, reg->edx);
+  k_printf("edi=0x%x, esi=0x%x, ebp=0x%x, esp=0x%x\n", reg->edi, reg->esi,
+	   reg->ebp, reg->esp);
+  k_printf("eip=0x%x, cs=0x%x, ss=0x%x, eflags=0x%x, useresp=0x%x\n", reg->eip,
+	   reg->ss, reg->eflags, reg->useresp);
+}
+
 void
 isr_exception_handler(REGISTERS reg) {
-  k_printf("received pointer: %x", reg.int_no);
+  if(g_interrupt_handlers[reg.int_no] != NULL) {
+    ISR handler = g_interrupt_handlers[reg.int_no];
+    handler(&reg);
+  }
+  print_registers(&reg);
+  panic("received pointer: %s\n", exception_messages[reg.int_no]);
 }

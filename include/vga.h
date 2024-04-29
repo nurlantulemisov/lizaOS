@@ -1,8 +1,7 @@
 #ifndef VGA_H
 #define VGA_H
 
-#define P2V(a) ((a) + 0xC0000000)
-#define VGA_ADDRESS 0xC00B8000
+#define VGA_ADDRESS 0xB8000
 
 // CRT Controller Registers
 #define VGA_CRTC_INDEX 0x3D4
@@ -35,20 +34,6 @@ typedef enum {
   COLOR_WHITE,
 } VGA_COLOR_TYPE;
 
-/**
- * 16 bit video buffer elements(register ax)
- * 8 bits(ah) higher :
- * lower 4 bits - forec olor
- * higher 4 bits - back color
-
- * 8 bits(al) lower :
- * 8 bits : ASCII character to print
- *
- * returns complete item with fore & back color to be placed at VGA address
-*/
-uint16
-vga_item_entry(uint8 ch, VGA_COLOR_TYPE fore_color, VGA_COLOR_TYPE back_color);
-
 void
 vga_write_b(uint8 ch, VGA_COLOR_TYPE fore_color, VGA_COLOR_TYPE back_color);
 
@@ -59,6 +44,6 @@ void
 vga_clear(VGA_COLOR_TYPE bg);
 
 void
-vga_newline();
+vga_newline(VGA_COLOR_TYPE fore_color, VGA_COLOR_TYPE back_color);
 
 #endif // !VGA_H

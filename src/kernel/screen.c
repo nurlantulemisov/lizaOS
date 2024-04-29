@@ -16,7 +16,7 @@ screen_init(VGA_COLOR_TYPE bg) {
 static void
 char_process(uint8 c) {
   if(c == '\n') {
-    vga_newline();
+    vga_newline(COLOR_WHITE, screen.bg);
   } else if(c == '\0') {
     return;
   } else {

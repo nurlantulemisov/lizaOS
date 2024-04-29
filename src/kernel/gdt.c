@@ -1,5 +1,9 @@
 #include "gdt.h"
 
+#include "kerror.h"
+#include "stdio.h"
+#include "types.h"
+
 GDT g_gdt[GDT_DESCRIPTORS];
 GDT_PTR g_gdt_ptr;
 
@@ -15,11 +19,16 @@ gdt_set_entry(int index, uint32 base, uint32 limit, uint8 access, uint8 gran) {
   g->granularity = g->granularity | (gran & 0xF0);
 
   g->base_high = (base >> 24 & 0xFF);
+
+  if((((uint32) g) - 0xC0000000) == 0x001010D8) {
+    k_printfln("gdt %p", ((uint32) g) - 0xC0000000);
+    panic("lc,;cd");
+  }
 }
 
 void
 gdt_init() {
-  g_gdt_ptr.limit = sizeof(g_gdt) - 1;
+  g_gdt_ptr.limit = sizeof(g_gdt) * (GDT_DESCRIPTORS - 1);
   g_gdt_ptr.base_address = (uint32) g_gdt;
 
   // NULL segment
