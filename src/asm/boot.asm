@@ -8,6 +8,11 @@ extern _KERNEL_END
 extern _BSS_START
 extern _BSS_SIZE
 
+extern _EARLY_DATA_START
+extern _EARLY_DATA_END
+extern _EARLY_TEXT_START
+extern _EARLY_TEXT_END
+
 extern _EARLY_KERNEL_START
 extern _EARLY_KERNEL_END
 extern _EARLY_BSS_START
@@ -17,7 +22,7 @@ KERNEL_BASE equ 0xC0000000
 LOWMEM_END  equ _EARLY_KERNEL_END       ; lowmem ends at the 1st MB
 PAGE_SIZE   equ 4096
 PAGE_SHIFT  equ 12                ; 2^12 = 4096 = PAGE_SIZE
-PAGE_PERM   equ 3                 ; default page permissions: present, read/write
+PAGE_PERM   equ 0x3                 ; default page permissions: present, read/write
 STACK_SIZE  equ 4*PAGE_SIZE       ; initial kernel stack space size of 16k
 
 ; constants for setting up the Multiboot header

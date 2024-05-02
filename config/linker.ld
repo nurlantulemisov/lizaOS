@@ -10,8 +10,16 @@ SECTIONS
      * Used by GRUB for image detection.
      */
     .__mbHeader : { *(.__mbHeader) }
-    .early_text ALIGN (0x1000) : { *(.early_text) }
-    .early_data ALIGN (0x1000) : { *(.early_data) }
+    .early_text ALIGN (0x1000) : {
+        _EARLY_TEXT_START = .;
+        *(.early_text)
+        _EARLY_TEXT_END = .;
+    }
+    .early_data ALIGN (0x1000) : {
+        _EARLY_DATA_START = .;
+        *(.early_data)
+        _EARLY_DATA_END = .;
+    }
     .early_bss ALIGN (0x1000) :
     {
         _EARLY_BSS_START = .;

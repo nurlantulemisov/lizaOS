@@ -77,6 +77,7 @@ print_registers(REGISTERS *reg) {
 void
 isr_exception_handler(REGISTERS reg) {
   if(g_interrupt_handlers[reg.int_no] != NULL) {
+    print_registers(&reg);
     ISR handler = g_interrupt_handlers[reg.int_no];
     handler(&reg);
   }

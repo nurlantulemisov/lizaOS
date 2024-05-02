@@ -7,8 +7,6 @@
 #include "string.h"
 #include "types.h"
 
-#include <stdint.h>
-
 // initialize the KERNEL_* convience variables
 // allows us forget about using & all the time
 uint32 KERNEL_START = (uint32) &_KERNEL_START;
@@ -56,14 +54,20 @@ virt_to_phys(uint32 virt_addr) {
     pd = _native_get_page_directory(); // identity mapped physical address
     pde = (uint32) pd[pageDirI];       // identity mapped physical address
     pt = (uint32 *) (pde & PAGE_ALIGN);
+    if(pt == (uint32 *) 0x001010D8 || pde == 0x001010D8
+       || pd == (uint32 *) 0x001010D8) {
+      panic("Unexpected address encountered");
+    }
   }
 
   // TODO: make this more robust
   ASSERT(pde & PAGE_ENTRY_PRESENT);
   ASSERT(pt[pageTableI] & PAGE_ENTRY_PRESENT);
 
+  uint32 addr = pt[pageTableI] & PAGE_ALIGN;
+
   // return just physical address without flags
-  return pt[pageTableI] & PAGE_ALIGN;
+  return addr;
 }
 
 /* Allocates a mapping between the requested virtual address
@@ -80,9 +84,7 @@ page_map(uint32 virt, uint32 phys, uint32 perm) {
   uint32 pageDirI = (index / 1024) % 1024;
   uint32 pageTableI = index % 1024;
 
-  if(phys == 0x001010D8 || virt == 0x001010D8) {
-    panic("");
-  }
+  uint32 pd = pageDirectory[pageDirI] & PAGE_ENTRY_PRESENT;
 
   // if the page table isn't present, create it
   if(!(pageDirectory[pageDirI] & PAGE_ENTRY_PRESENT)) {
@@ -90,6 +92,9 @@ page_map(uint32 virt, uint32 phys, uint32 perm) {
 
     // Clear all physical addresses and flags
     memset(pageTable, 0, PAGE_TABLE_SIZE);
+
+    uint32 d =
+      virt_to_phys((uint32) pageTable) | PAGE_ENTRY_PRESENT | PAGE_ENTRY_RW;
 
     // Add the page table to the directory and mark it as present
     // NOTE: PDE's MUST have a physical address
@@ -103,11 +108,14 @@ page_map(uint32 virt, uint32 phys, uint32 perm) {
     ptPhysToVirt[pageDirI] = pageTable;
   }
 
+  uint32 d = pageDirectory[pageDirI];
   // load our virtual PT address from our reverse mapping
   uint32 *pageTable = ptPhysToVirt[pageDirI];
   page_map_pte(pageTable, pageTableI, phys, perm);
 
-  return (uint32) &pageTable[pageTableI];
+  uint32 t = (uint32) &pageTable[pageTableI];
+
+  return t;
 }
 /* A direct mapping between the virtual and physical realm
  */
@@ -137,6 +145,15 @@ page_fault_handler(REGISTERS *regs) {
 	     faulting_address, present, rw, us, reserved, id);
   panic("here");
 }
+void
+page_ident_map_range(uint32 start, uint32 end, uint32 perm) {
+  ASSERT(start < end);
+
+  end = PAGE_ALIGN_UP(end);
+
+  for(; start < end; start += PAGE_SIZE)
+    page_map(start, start, perm);
+}
 
 void
 init_paging() {
@@ -147,7 +164,6 @@ init_paging() {
   pageDirectory = (uint32 *) kmalloc_early_align(PAGE_TABLE_SIZE);
   ptPhysToVirt = (uint32 **) kmalloc_early_align(PAGE_TABLE_SIZE);
 
-  k_printfln("page_dir=%p, pt_phys=%p", pageDirectory, ptPhysToVirt);
   // initialize all the page tables to not present, rw, supervisor
   memset(pageDirectory, 0, PAGE_TABLE_SIZE);
   // initialize reverse mappings
@@ -161,10 +177,6 @@ init_paging() {
   for(i = 0; i < PAGES_PER_MB(1); i++) {
     page_ident_map(addr, PAGE_ENTRY_RW);
     addr += PAGE_SIZE;
-    if(addr == 0x001010D8) {
-      panic("hfbvhjfbv");
-    }
-    // k_printfln("addr=%p", addr);
   }
 
   // move our kernel to the higher half
@@ -172,16 +184,8 @@ init_paging() {
   uint32 virtStart = KERNEL_START;
   uint32 virtEnd = PAGE_ALIGN_UP(KERNEL_END);
 
-  k_printfln("KERNEL_START=%p, KERNEL_END=%p", virtStart, virtEnd);
-  k_printfln("PHYS_START=%p, PHYS_END=%p", virtStart - virtBase,
-	     virtEnd - virtBase);
   for(addr = virtStart - virtBase; virtStart < virtEnd;
       virtStart += PAGE_SIZE, addr += PAGE_SIZE) {
-    if(addr == 0x001010D8) {
-      panic("hfbvhjfbv");
-    }
-    // k_printfln("addr=%p", addr);
-
     page_map(virtStart, addr, PAGE_ENTRY_RW);
   }
 
@@ -193,16 +197,6 @@ init_paging() {
   _native_set_page_directory((uint32 *) virt_to_phys((uint32) pageDirectory));
   _native_paging_enable();
   kernelPagingEnabled = 1;
-}
-
-void
-page_ident_map_range(uint32 start, uint32 end, uint32 perm) {
-  ASSERT(start < end);
-
-  end = PAGE_ALIGN_UP(end);
-
-  for(; start < end; start += PAGE_SIZE)
-    page_map(start, start, perm);
 }
 
 static void

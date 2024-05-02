@@ -30,46 +30,6 @@ kmalloc_early_init(uint32 base, uint32 max) {
   initialized = 1;
 }
 
-/* Returns true on a finding a free memory region.
- * Uses this to initialize kmalloc_early
- * TODO: depreciate this and just make a function to get a list
- * of memory regions by availability
- */
-// int kmalloc_early_init_grub(struct multiboot_info * mbi)
-// {
-//   if(mbi == NULL)
-//     return 0;
-//
-//   if(mbi->flags & MULTIBOOT_INFO_MEM_MAP)
-//   {
-//     uint32 * mem_info_ptr = (uint32 *)mbi->mmap_addr;
-//
-//     while(mem_info_ptr < (uint32 *)mbi->mmap_addr+mbi->mmap_length)
-//     {
-//       multiboot_memory_map_t * cur = (multiboot_memory_map_t *)mem_info_ptr;
-//
-//       // choose the first memory location we find. don't worry about the size
-//       yet if(cur->type == MULTIBOOT_MEMORY_AVAILABLE && cur->len > 0)
-//       {
-//         if(cur->addr == 0x0 && cur->len > PAGE_SIZE)
-//         {
-//           cur->addr += PAGE_SIZE;
-//           cur->len -= PAGE_SIZE;
-//         }
-//
-//         kmalloc_early_init(cur->addr, cur->addr+cur->len);
-//         //kmalloc_early_init(0x0 KERNEL_END, 0xC0000000 +
-//         KERNEL_END+0x10000); return 1;
-//       }
-//
-//       // move to the next structure
-//       mem_info_ptr += cur->size + sizeof(cur->size);
-//     }
-//   }
-//
-//   return 0;
-// }
-
 uint32
 kmalloc_early(uint32 size) {
   if(!initialized)

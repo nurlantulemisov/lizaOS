@@ -21,19 +21,12 @@ idt_set_entry(int index, uint32 base, uint16 seg_sel, uint8 flags) {
   i->zero = 0;
   i->type = flags;
   i->base_high = (base >> 16) & 0xFFFF;
-
-  if((((uint32) i) - 0xC0000000) == 0x001010D8) {
-    k_printfln("idt %p", ((uint32) i) - 0xC0000000);
-    panic("lc,;cd");
-  }
 }
 
 void
 idt_init() {
   g_idt_ptr.base_address = (uint32) g_idt;
   g_idt_ptr.limit = sizeof(g_idt) * (IDT_DESCRIPTORS - 1);
-
-  pic8259_init();
 
   idt_set_entry(0, (uint32) exception_0, 0x08, 0x8E);
   idt_set_entry(1, (uint32) exception_1, 0x08, 0x8E);
