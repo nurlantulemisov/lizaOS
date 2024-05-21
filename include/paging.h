@@ -97,4 +97,10 @@ typedef struct page_directory {
 void
 init_paging();
 
+uint32
+page_ident_map(uint32 addr, uint32 perm);
+
+uint32
+page_map(uint32 virt, uint32 phys, uint32 perm);
+
 #endif // !PAGING_H
