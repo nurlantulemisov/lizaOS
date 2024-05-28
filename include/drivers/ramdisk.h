@@ -1,6 +1,7 @@
 #ifndef H_RAMDISK
 #define H_RAMDISK
 
+#include "fs/vfs.h"
 #include "types.h"
 
 typedef struct {
@@ -15,7 +16,7 @@ typedef struct {
   uint32 length;  // Length of the file.
 } initrd_file_header_t;
 
-void
+inode_t *
 ramdisk_init(uint32 addr, uint32 size);
 
 #endif // !H_RAMDISK

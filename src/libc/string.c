@@ -42,3 +42,18 @@ memmove(void *dst, const void *src, ssize_t n) {
   }
   return dst;
 }
+
+char *
+strcpy(char *dest, const char *src) {
+  do {
+    *dest++ = *src++;
+  } while(*src != 0);
+}
+
+int
+strlen(char *src) {
+  int i = 0;
+  while(*src++)
+    i++;
+  return i;
+}

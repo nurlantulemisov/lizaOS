@@ -1,6 +1,6 @@
 #include "8259_pic.h"
 #include "alloc.h"
-#include "driver/ramdisk.h"
+#include "drivers/ramdisk.h"
 #include "gdt.h"
 #include "idt.h"
 #include "multiboot.h"
@@ -55,10 +55,6 @@ kmain(struct multiboot_info *mbi, uint32 magic) {
   multiboot_module_t *modules = (multiboot_module_t *) (new_location);
   ssize_t size = modules[0].mod_end - modules[0].mod_start;
   k_printf("Module %u size: %u bytes\n", 0, size);
-  // uint32 addr = kmalloc_early_align(size);
-  //
-  // memmove((const void *) addr, (const void *) new_location, size);
-  // uint32 size = 0;
   uint32 mod_new_addr = kmalloc_early_align(sizeof(uint32));
   page_map(mod_new_addr, modules[0].mod_start, PAGE_ENTRY_RW);
   ramdisk_init(mod_new_addr, size);
