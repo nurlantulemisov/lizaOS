@@ -1,5 +1,6 @@
 #include "string.h"
 
+#include "stdio.h"
 #include "types.h"
 
 void *
@@ -13,13 +14,14 @@ memset(void *dst, char c, uint32 n) {
 
 void *
 memcpy(void *dst, void *src, uint32 size) {
-  unsigned int i;
-
-  for(i = 0; i < size; i++) {
-    *((unsigned char *) dst + i) = *((unsigned char *) src + i);
+  char *ret = dst;
+  char *p = dst;
+  const char *q = src;
+  while(size--) {
+    *p++ = *q++;
   }
 
-  return dst;
+  return ret;
 }
 
 void *
@@ -56,4 +58,23 @@ strlen(char *src) {
   while(*src++)
     i++;
   return i;
+}
+
+int
+strcmp(char *str1, char *str2) {
+  int i = 0;
+  int failed = 0;
+  while(str1[i] != '\0' && str2[i] != '\0') {
+    if(str1[i] != str2[i]) {
+      failed = 1;
+      break;
+    }
+    i++;
+  }
+  // why did the loop exit?
+  if((str1[i] == '\0' && str2[i] != '\0')
+     || (str1[i] != '\0' && str2[i] == '\0'))
+    failed = 1;
+
+  return failed;
 }

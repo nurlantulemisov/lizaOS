@@ -15,7 +15,7 @@ main(int argc, char **argv) {
   uint32_t nheaders = (argc - 1) / 2;
   struct initrd_header headers[64];
   printf("size of header: %d\n", sizeof(struct initrd_header));
-  uint8_t off = sizeof(struct initrd_header) * 64 + sizeof(int);
+  uint32_t off = sizeof(struct initrd_header) * 64 + sizeof(uint32_t);
 
   int i;
   for(i = 0; i < nheaders; i++) {
@@ -34,7 +34,7 @@ main(int argc, char **argv) {
     fclose(stream);
     headers[i].magic = 0xBF;
   }
-  printf("nheaders: %d", nheaders);
+
   FILE *wstream = fopen("./initrd.img", "w");
   uint8_t *data = (uint8_t *) malloc(off);
   fwrite(&nheaders, sizeof(uint32_t), 1, wstream);
@@ -43,8 +43,10 @@ main(int argc, char **argv) {
   for(i = 0; i < nheaders; i++) {
     FILE *stream = fopen(argv[i * 2 + 1], "r");
     uint8_t *buf = (uint8_t *) malloc(headers[i].length);
-    fread(buf, 1, headers[i].length, stream);
-    fwrite(buf, 1, headers[i].length, wstream);
+    size_t readed = fread(buf, 1, headers[i].length, stream);
+    size_t writed = fwrite(buf, 1, headers[i].length, wstream);
+    printf("read=%d write=%d offset=%d buf=%s buf[0]=%c\n", readed, writed,
+	   headers[i].offset, buf, buf[0]);
     fclose(stream);
     free(buf);
   }
