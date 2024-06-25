@@ -119,3 +119,10 @@ qemu-run:
 
 debug:
 	./scripts/debug.sh
+
+build-initrd:
+	$(CC) -o tmp/initrd misc/initrd.c
+
+update-initrd:
+	cd tmp && ./initrd creator.txt creator.txt 
+

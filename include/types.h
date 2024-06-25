@@ -11,5 +11,6 @@ typedef unsigned char uint8;
 typedef unsigned long uint64;
 typedef long int64;
 typedef enum { FALSE, TRUE } BOOL;
+typedef uint32 ssize_t;
 
 #endif

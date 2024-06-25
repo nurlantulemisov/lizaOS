@@ -1,4 +1,6 @@
 .cache/
 obj/
 out/
-
+initrd
+initrd.img
+tmp/

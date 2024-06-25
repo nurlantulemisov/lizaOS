@@ -47,7 +47,7 @@ kmalloc_early(uint32 size) {
 
   currentBase += size;
 
-  k_printfln("alloc=%p", addr);
+  // k_printfln("alloc=%p", addr);
 
   return addr;
 }
